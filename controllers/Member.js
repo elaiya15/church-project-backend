@@ -123,89 +123,64 @@ exports.SingleGetMemberById = async (req, res) => {
 
 exports.UpdateMemberById = async (req, res) => {
   const id = req.params.id;
-  try {
-    const member = await Member.findOne({
-      member_id: id,
-    }).lean();
+  console.log("Request body:", req.body);
 
+  try {
+    const member = await Member.findOne({ member_id: id }).lean();
     if (!member) {
       return res.status(404).json({ message: "Member not found" });
     }
 
-    if (req.file === undefined) {
-      delete req.body.member_photo;
+    // Handle member photo update
+    if (req.file) {
+      req.body.member_photo = `/uploads/${req.file.filename}`;
     } else {
-      // const member_photo = req.file?.member_photo?.[0]?.buffer || null;
-      const member_photo = req.file ? `/uploads/${req.file.filename}` : "";
-
-      req.body.member_photo = member_photo;
+      delete req.body.member_photo;
     }
-    console.log(req.body.member_photo);
+    console.log("Updated member photo:", req.body.member_photo);
+
+    // Check and handle marriage date and family head
     if (req.body.marriage_date) {
-      console.log("marriage_date true");
+      console.log("Marriage date provided:", req.body.marriage_date);
+
       if (req.body.gender !== "Female") {
-        const familyMembers = await Family.find({
-          head: id,
-        });
-        console.log("gender male");
+        const familyMembers = await Family.find({ head: id });
+        
         if (familyMembers.length === 0) {
-          console.log("head null");
           const family_id = await generateFamilyCode();
-          const newFamily = new Family({
-            family_id: family_id,
-            head: id,
-            members: [],
-          });
-          const savedFamily = await newFamily.save();
+          const newFamily = new Family({ family_id, head: id, members: [] });
+          await newFamily.save();
+
           req.body.secondary_family_id = family_id;
-          const updateMember = await Member.findOneAndUpdate(
-            { member_id: id },
-            { ...req.body }
-          );
-        } else {
-          console.log("else case 3");
-          const updateMember = await Member.findOneAndUpdate(
-            { member_id: id },
-            { ...req.body }
-          );
         }
-      } else {
-        console.log("else case 2");
-        if (req.body.new_family === "true") {
-          console.log("new_family true");
-          const familyMembers = await Family.find({
-            head: id,
-          });
-          if (familyMembers.length === 0) {
-            console.log("length 0");
-            const family_id = await generateFamilyCode();
-            const newFamily = new Family({
-              family_id: family_id,
-              head: id,
-              members: [],
-            });
-            const savedFamily = await newFamily.save();
-            req.body.left_date = null;
-            req.body.reason_for_inactive = null;
-            req.body.description = null;
-            req.body.secondary_family_id = family_id;
-          }
+        
+        await Member.findOneAndUpdate({ member_id: id }, { ...req.body });
+      } else if (req.body.new_family === "true") {
+        const familyMembers = await Family.find({ head: id });
+
+        if (familyMembers.length === 0) {
+          const family_id = await generateFamilyCode();
+          const newFamily = new Family({ family_id, head: id, members: [] });
+          await newFamily.save();
+
+          req.body.left_date = null;
+          req.body.reason_for_inactive = null;
+          req.body.description = null;
+          req.body.secondary_family_id = family_id;
         }
       }
     }
-    const updateMember = await Member.findOneAndUpdate(
-      { member_id: id },
-      { ...req.body }
-    );
 
-    return res.status(200).json({ message: "Updated Successful" });
+    await Member.findOneAndUpdate({ member_id: id }, { ...req.body });
+    console.log("Member update successful:", req.body);
+
+    return res.status(200).json({ message: "Updated successfully" });
   } catch (error) {
-    console.log(error);
-    return res
-      .status(500)
-      .json({ message: "Failed to Update member", error: error.message });
+    console.error("Error updating member:", error);
+    return res.status(500).json({ message: "Failed to update member", error: error.message });
   }
 };
+
 
 // Assuming you have required necessary modules and models already
 
