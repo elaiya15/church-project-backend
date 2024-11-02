@@ -141,7 +141,7 @@ exports.UpdateMemberById = async (req, res) => {
       req.body.member_photo = member_photo;
     }
     console.log(req.body.member_photo);
-    if (req.body.marriage_date !== undefined || req.body.marriage_date !== "") {
+    if (req.body.marriage_date) {
       console.log("marriage_date true");
       if (req.body.gender !== "Female") {
         const familyMembers = await Family.find({
